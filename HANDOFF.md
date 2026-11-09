@@ -260,7 +260,7 @@ Preguntas abiertas:
 
 1. **Renovar las credenciales SSO** en `glosario-aws/.env.aws` y correr `aws_connect.py check` y `deploy.py hours --action status --env dev` para confirmar que dev sigue en pie.
 2. **Generar las llaves de dev** y darlas de alta por el runner de BD.
-   - Script listo, pero en un temporal de la sesión que puede haberse borrado: `C:\Users\CAGONZ~1\AppData\Local\Temp\claude\C--Users-cagonzalez-Documents-Respaldar-Claude-Projects-Sessions\361a8a67-45fb-403a-beae-f2a9cf951f67\scratchpad\alta_llaves_dev.py`.
+   - Script listo en `glosario-aws\database\tools\alta_llaves_dev.py`, versionado desde el 09/11. Se corre desde la raíz de `glosario-aws` con `py -3.11 database\tools\alta_llaves_dev.py`.
    - Lo que hace: genera las llaves, agrega un `changes_run/zzzz_alta_llaves.sql` al bundle del deployer y escribe las llaves en `glosario-aws/.env.llaves-dev`, que git ignora.
    - Después hay que probar `/me` con la llave de administración y `POST /ingest/sync-runs` con la de ingesta.
 3. **Crear el repo en GitLab Intelix**: el código ya está en git y en GitHub (`flujosoice/glosario-aws`, desde el 09/11). Falta agregar el remoto de GitLab, crear las ramas `develop`, `qa` y `master` protegidas y hacer push (necesita la VPN).

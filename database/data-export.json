@@ -1,0 +1,56 @@
+{
+  "origin": "semillas de database\\source",
+  "envs": {
+    "dev": {
+      "auth.users": 0,
+      "public.etiquetas": 24,
+      "public.llaves_acceso": 0,
+      "public.maestros": 4,
+      "public.sincronizaciones": 0,
+      "public.terminos": 1246,
+      "public.atributos_maestro": 0,
+      "public.auditoria_terminos": 0,
+      "public.definicion_fragmentos": 80,
+      "public.diccionario_softland": 0,
+      "public.sugerencias_diccionario": 171,
+      "public.termino_campos_bd": 165,
+      "public.termino_etiquetas": 1403,
+      "public.termino_maestros": 86,
+      "public.sugerencia_opciones": 257
+    },
+    "qa": {
+      "auth.users": 0,
+      "public.etiquetas": 24,
+      "public.llaves_acceso": 0,
+      "public.maestros": 4,
+      "public.sincronizaciones": 0,
+      "public.terminos": 1246,
+      "public.atributos_maestro": 0,
+      "public.auditoria_terminos": 0,
+      "public.definicion_fragmentos": 80,
+      "public.diccionario_softland": 0,
+      "public.sugerencias_diccionario": 171,
+      "public.termino_campos_bd": 165,
+      "public.termino_etiquetas": 1403,
+      "public.termino_maestros": 86,
+      "public.sugerencia_opciones": 257
+    },
+    "prd": {
+      "auth.users": 0,
+      "public.etiquetas": 24,
+      "public.llaves_acceso": 0,
+      "public.maestros": 4,
+      "public.sincronizaciones": 0,
+      "public.terminos": 1246,
+      "public.atributos_maestro": 0,
+      "public.auditoria_terminos": 0,
+      "public.definicion_fragmentos": 80,
+      "public.diccionario_softland": 0,
+      "public.sugerencias_diccionario": 171,
+      "public.termino_campos_bd": 165,
+      "public.termino_etiquetas": 1403,
+      "public.termino_maestros": 86,
+      "public.sugerencia_opciones": 257
+    }
+  }
+}

@@ -1,0 +1,24 @@
+@import './tokens.css';
+@import '../shared/ui/ui.css';
+@import './app.css';
+@import './admin.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+.muted {
+  color: var(--color-muted);
+}
+.row-flex {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}

@@ -1,0 +1,132 @@
+# Especificación funcional del Glosario de Términos de Mayoreo en AWS (estándar Intelix).
+# Origen: app de un solo archivo publicada en claude.ai (glosario-terminos-mayoreo/), referencia de
+# aceptación app/glosario_vista_completa.html. Reglas de negocio de Procesos: glosario-terminos-mayoreo/CLAUDE.md.
+project:
+  name: Glosario de Términos
+  slug: glosario
+  compania: may
+  exposure: public
+  public_reason: >
+    Sin Cognito por decisión del negocio: la app se embebe en el Portal Interno Mayoreo, que controla
+    quién abre el enlace general (solo lectura) y el enlace de administración de Procesos. La API queda
+    alcanzable desde internet sin sesión de usuario, por eso va con WAF (reglas administradas y límite de
+    peticiones), CORS restringido al dominio de la app y llaves de acceso validadas en el backend para
+    toda escritura (llave de administración) y para la ingesta de n8n (llave de ingesta).
+  description: >
+    Glosario de 1.246 términos de negocio de Cofersa, Febeca, Sillaca, Beval y Mundi Partes con su
+    definición, etiquetas, Campo en Base de Datos, Campo en Softland y Maestro de origen. Toda la
+    organización consulta; el Departamento de Procesos administra términos, etiquetas, maestros y la
+    revisión del Diccionario de Softland. n8n sincroniza los Maestros de Artículos y Clientes (Google
+    Sheets) y el Diccionario de Softland hacia Aurora.
+frontend:
+  primary_color: "#1f2937"
+target:
+  aws_region: us-west-2
+roles: [procesos, consulta]
+requirements:
+  - id: RF-01
+    title: Consultar el glosario
+    description: >
+      Cualquier persona con el enlace general ve los términos activos en tarjetas o en lista, con el
+      número de términos visibles. Las tarjetas muestran Campo BD o Softland solo si el término los tiene.
+    roles: [consulta, procesos]
+  - id: RF-02
+    title: Buscar términos
+    description: >
+      La búsqueda considera el nombre del término, las etiquetas, el Campo BD y el Campo Softland, nunca
+      la definición (pedido explícito de Procesos).
+    roles: [consulta, procesos]
+  - id: RF-03
+    title: Filtrar términos
+    description: >
+      Filtros combinables por Silo / Sistema de Origen (etiquetas sin prefijo), Rol en Reporte SIM
+      (prefijos Dimensión, Filtro, Indicador), Maestro de origen (Todos, cada maestro, Sin definir) y
+      Campo BD / Softland (Todos, Con campo, Sin campo), con "Quitar todos los filtros".
+    roles: [consulta, procesos]
+  - id: RF-04
+    title: Ver la ficha de un término
+    description: >
+      La ficha muestra nombre, etiquetas, definición (por contexto en los términos fusionados) y los
+      campos BD por empresa o tabla en casillas separadas. Quien solo consulta no ve casillas vacías; no
+      se muestran notas de fusión, homónimos ni el id interno.
+    roles: [consulta, procesos]
+  - id: RF-05
+    title: Entrar a la administración con el enlace de Procesos
+    description: >
+      El enlace de administración lleva una llave de acceso. Solo con una llave de administración
+      vigente se muestra la sección Administración · Procesos; el servidor rechaza toda escritura sin
+      esa llave (el enlace general es solo lectura).
+    roles: [procesos]
+  - id: RF-06
+    title: Ver indicadores de administración
+    description: >
+      Términos activos, Nuevos, Editados, Con campo BD/Softland, Sin campo BD/Softland y Eliminados;
+      cada indicador filtra la lista de términos de Administración.
+    roles: [procesos]
+  - id: RF-07
+    title: Crear y editar términos
+    description: >
+      Nombre, definición, etiquetas, filas de Campo BD con "Aplica a" (obligatorio si hay más de una),
+      Campo Softland y maestros. Un término queda "Editado" solo si cambia nombre, definición o
+      etiquetas. Cada cambio queda en la auditoría con la llave que lo hizo.
+    roles: [procesos]
+  - id: RF-08
+    title: Eliminar y restaurar términos
+    description: Borrado lógico con confirmación de segundo clic y restauración posterior.
+    roles: [procesos]
+  - id: RF-09
+    title: Gestionar etiquetas
+    description: >
+      Agregar etiquetas de Silo / Sistema de Origen y de Rol en Reporte SIM, ver cuántos términos tiene
+      cada una y eliminar solo las que no son base. Sin duplicados (sin distinguir mayúsculas).
+    roles: [procesos]
+  - id: RF-10
+    title: Gestionar maestros
+    description: >
+      Artículo y Cliente son base y no se eliminan; los agregados se eliminan solo si no tienen términos.
+      Sin duplicados (sin distinguir mayúsculas). Se ve cuántos términos tiene cada maestro.
+    roles: [procesos]
+  - id: RF-11
+    title: Revisar coincidencias con el Diccionario de Softland
+    description: >
+      Una coincidencia a la vez, con filtros por estado y confianza y hasta 6 columnas candidatas; se
+      pueden buscar más columnas en el Diccionario de Softland sincronizado en Aurora. Aplicar escribe
+      Campo BD, Campo Softland y Maestro en el término y marca la coincidencia en una sola transacción
+      (crea el maestro si es nuevo); Descartar no toca el término; Volver a pendiente no borra lo aplicado.
+      Nada se aplica sin confirmación de Procesos.
+    roles: [procesos]
+  - id: RF-12
+    title: Sincronizar los Maestros de Artículos y de Clientes
+    description: >
+      Un flujo n8n con la llave de ingesta envía por lotes las filas de las matrices "Modelo de Atributos
+      del Dato Maestro" (Google Sheets) y confirma la carga; la versión vigente se reemplaza completa en
+      una transacción y la carga queda en la bitácora. Una carga incompleta o fallida no cambia lo vigente.
+    roles: [procesos]
+  - id: RF-13
+    title: Sincronizar el Diccionario de Softland
+    description: >
+      Un flujo n8n con la llave de ingesta envía por lotes las columnas del Diccionario de datos de
+      Softland (sin conexión directa de AWS a Softland) con el mismo mecanismo de cargas y bitácora.
+    roles: [procesos]
+  - id: RF-14
+    title: Consultar la bitácora de sincronizaciones
+    description: >
+      Procesos y n8n consultan las últimas cargas por origen: estado, filas recibidas y aplicadas,
+      fechas y error si lo hubo.
+    roles: [procesos]
+  - id: RF-15
+    title: Verificar la salud del servicio
+    description: >
+      GET /health responde 200 si la API y la base de datos Aurora responden y 503 si la base no está
+      disponible, sin exponer detalles del error ni datos del glosario (monitoreo, estándar Intelix DEVOPS3).
+    roles: [consulta, procesos]
+modules:
+  - {name: glossary, description: Términos del glosario, consulta y administración, entities: [terminos, termino_campos_bd, definicion_fragmentos, termino_etiquetas, termino_maestros, auditoria_terminos]}
+  - {name: catalogs, description: Etiquetas y maestros, entities: [etiquetas, maestros]}
+  - {name: dictionary, description: Coincidencias con el Diccionario de Softland y búsqueda en el diccionario, entities: [sugerencias_diccionario, sugerencia_opciones]}
+  - {name: sync, description: Ingesta de n8n y bitácora de sincronizaciones, entities: [sincronizaciones, atributos_maestro, diccionario_softland]}
+  - {name: access, description: Llaves de acceso de administración e ingesta, entities: [llaves_acceso]}
+features:
+  storage_buckets: []
+  realtime_tables: []
+  async: false

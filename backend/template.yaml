@@ -1,0 +1,1441 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: GLOSARIO - API | Backend serverless (Lambda + API Gateway + Aurora)
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+    - dev
+    - qa
+    - prod
+    Description: Ambiente de despliegue
+  VpcSubnetIds:
+    Type: AWS::SSM::Parameter::Value<List<AWS::EC2::Subnet::Id>>
+    Description: Ruta SSM con las subnets privadas de las Lambdas
+  LambdaSecurityGroupId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::SecurityGroup::Id>
+    Description: Ruta SSM con el Security Group de las Lambdas
+  DbProxyEndpoint:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: Ruta SSM con el endpoint de RDS Proxy / Aurora
+  DbSecretName:
+    Type: String
+    Description: Nombre del secreto de usr_<app>_app (nunca la password)
+  DbName:
+    Type: String
+    Description: Base Aurora del ambiente ({compania}_{amb}_{app}_db)
+  AllowedOrigins:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: Ruta SSM con el origen del frontend (CORS estricto)
+  CognitoUserPoolArn:
+    Type: String
+    Default: ''
+    Description: ARN de un User Pool existente; vacío = crear uno en el stack
+  AlarmTopicArn:
+    Type: String
+    Default: ''
+    Description: SNS para alarmas (opcional)
+  LogLevel:
+    Type: String
+    Default: INFO
+    AllowedValues:
+    - DEBUG
+    - INFO
+    - WARNING
+    - ERROR
+  WafRateLimit:
+    Type: Number
+    Default: 2000
+    MinValue: 100
+    Description: Peticiones por IP cada 5 minutos antes de bloquear
+Conditions:
+  IsProduction: !Equals
+  - !Ref 'Environment'
+  - prod
+  CreateUserPool: !Equals
+  - !Ref 'CognitoUserPoolArn'
+  - ''
+  HasAlarmTopic: !Not
+  - !Equals
+    - !Ref 'AlarmTopicArn'
+    - ''
+Globals:
+  Function:
+    Runtime: python3.13
+    Architectures:
+    - x86_64
+    MemorySize: 512
+    Timeout: 30
+    CodeUri: src/
+    VpcConfig:
+      SubnetIds: !Ref 'VpcSubnetIds'
+      SecurityGroupIds:
+      - !Ref 'LambdaSecurityGroupId'
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref 'Environment'
+        SERVICE_NAME: glosario
+        LOG_LEVEL: !Ref 'LogLevel'
+        DB_SECRET_NAME: !Ref 'DbSecretName'
+        DB_NAME: !Ref 'DbName'
+        DB_PROXY_ENDPOINT: !Ref 'DbProxyEndpoint'
+        DB_PORT: '5432'
+        DB_SSLMODE: require
+        ALLOWED_ORIGINS: !Ref 'AllowedOrigins'
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Condition: CreateUserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      UserPoolName: !Sub '${AWS::StackName}-users'
+      UsernameAttributes:
+      - email
+      AutoVerifiedAttributes:
+      - email
+      MfaConfiguration: OPTIONAL
+      EnabledMfas:
+      - SOFTWARE_TOKEN_MFA
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+        - Name: verified_email
+          Priority: 1
+      DeletionProtection: !If [IsProduction, ACTIVE, INACTIVE]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          TemporaryPasswordValidityDays: 3
+      UserPoolTags:
+        Project: GLOSARIO
+        Environment: !Ref 'Environment'
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Condition: CreateUserPool
+    Properties:
+      ClientName: !Sub '${AWS::StackName}-web'
+      UserPoolId: !Ref 'UserPool'
+      GenerateSecret: false
+      ExplicitAuthFlows:
+      - ALLOW_USER_SRP_AUTH
+      - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+  ProcesosUserGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Condition: CreateUserPool
+    Properties:
+      GroupName: procesos
+      UserPoolId: !Ref 'UserPool'
+      Description: GLOSARIO - grupo procesos
+  ConsultaUserGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Condition: CreateUserPool
+    Properties:
+      GroupName: consulta
+      UserPoolId: !Ref 'UserPool'
+      Description: GLOSARIO - grupo consulta
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub '${AWS::StackName}-api'
+      Description: GLOSARIO - API | REST API (public)
+      StageName: !Ref 'Environment'
+      EndpointConfiguration:
+        Type: REGIONAL
+      OpenApiVersion: 3.0.1
+      Cors:
+        AllowOrigin: !Sub '''${AllowedOrigins}'''
+        AllowHeaders: '''Authorization,Content-Type'''
+        AllowMethods: '''GET,POST,PUT,PATCH,DELETE,OPTIONS'''
+        MaxAge: '''600'''
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        AddDefaultAuthorizerToCorsPreflight: false
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !If
+            - CreateUserPool
+            - !GetAtt 'UserPool.Arn'
+            - !Ref 'CognitoUserPoolArn'
+            Identity:
+              Header: Authorization
+      MethodSettings:
+      - ResourcePath: /*
+        HttpMethod: '*'
+        ThrottlingBurstLimit: 200
+        ThrottlingRateLimit: 100
+      GatewayResponses:
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: !Sub '''${AllowedOrigins}'''
+              Access-Control-Allow-Headers: '''Authorization,Content-Type'''
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: !Sub '''${AllowedOrigins}'''
+              Access-Control-Allow-Headers: '''Authorization,Content-Type'''
+        UNAUTHORIZED:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: !Sub '''${AllowedOrigins}'''
+              Access-Control-Allow-Headers: '''Authorization,Content-Type'''
+        ACCESS_DENIED:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: !Sub '''${AllowedOrigins}'''
+              Access-Control-Allow-Headers: '''Authorization,Content-Type'''
+  Api5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-api5xx'
+      AlarmDescription: GLOSARIO - errores 5XX en API Gateway
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/ApiGateway
+      MetricName: 5XXError
+      Dimensions:
+      - Name: ApiName
+        Value: !Sub '${AWS::StackName}-api'
+  GetAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-get-access'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  GetAccessFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-get-access'
+      Description: GLOSARIO - GET_ACCESS | GET /me
+      Handler: entrypoints.lambda_handlers.access.get_access_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'GetAccessLogGroup'
+      Events:
+        GetMe:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /me
+            Method: get
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  GetAccessErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-get-access-errors'
+      AlarmDescription: GLOSARIO - errores en GetAccessFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'GetAccessFunction'
+  GetHealthLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-get-health'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  GetHealthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-get-health'
+      Description: GLOSARIO - GET_HEALTH | GET /health
+      Handler: entrypoints.lambda_handlers.access.get_health_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'GetHealthLogGroup'
+      Events:
+        GetHealth:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /health
+            Method: get
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  GetHealthErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-get-health-errors'
+      AlarmDescription: GLOSARIO - errores en GetHealthFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'GetHealthFunction'
+  ListTermsLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-list-terms'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  ListTermsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-list-terms'
+      Description: GLOSARIO - LIST_TERMS | GET /terms
+      Handler: entrypoints.lambda_handlers.glossary.list_terms_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'ListTermsLogGroup'
+      Events:
+        GetTerms:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /terms
+            Method: get
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  ListTermsErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-list-terms-errors'
+      AlarmDescription: GLOSARIO - errores en ListTermsFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'ListTermsFunction'
+  GetCatalogsLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-get-catalogs'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  GetCatalogsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-get-catalogs'
+      Description: GLOSARIO - GET_CATALOGS | GET /catalogs
+      Handler: entrypoints.lambda_handlers.catalogs.get_catalogs_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'GetCatalogsLogGroup'
+      Events:
+        GetCatalogs:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /catalogs
+            Method: get
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  GetCatalogsErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-get-catalogs-errors'
+      AlarmDescription: GLOSARIO - errores en GetCatalogsFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'GetCatalogsFunction'
+  ListAdminTermsLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-list-admin-terms'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  ListAdminTermsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-list-admin-terms'
+      Description: GLOSARIO - LIST_ADMIN_TERMS | GET /admin/terms
+      Handler: entrypoints.lambda_handlers.glossary.list_admin_terms_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'ListAdminTermsLogGroup'
+      Events:
+        GetAdminTerms:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /admin/terms
+            Method: get
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  ListAdminTermsErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-list-admin-terms-errors'
+      AlarmDescription: GLOSARIO - errores en ListAdminTermsFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'ListAdminTermsFunction'
+  CreateTermLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-create-term'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  CreateTermFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-create-term'
+      Description: GLOSARIO - CREATE_TERM | POST /admin/terms
+      Handler: entrypoints.lambda_handlers.glossary.create_term_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'CreateTermLogGroup'
+      Events:
+        PostAdminTerms:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /admin/terms
+            Method: post
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  CreateTermErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-create-term-errors'
+      AlarmDescription: GLOSARIO - errores en CreateTermFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'CreateTermFunction'
+  UpdateTermLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-update-term'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  UpdateTermFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-update-term'
+      Description: GLOSARIO - UPDATE_TERM | PUT /admin/terms/{termId}
+      Handler: entrypoints.lambda_handlers.glossary.update_term_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'UpdateTermLogGroup'
+      Events:
+        PutAdminTermsTermId:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /admin/terms/{termId}
+            Method: put
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  UpdateTermErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-update-term-errors'
+      AlarmDescription: GLOSARIO - errores en UpdateTermFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'UpdateTermFunction'
+  DeleteTermLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-delete-term'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  DeleteTermFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-delete-term'
+      Description: GLOSARIO - DELETE_TERM | DELETE /admin/terms/{termId}
+      Handler: entrypoints.lambda_handlers.glossary.delete_term_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'DeleteTermLogGroup'
+      Events:
+        DeleteAdminTermsTermId:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /admin/terms/{termId}
+            Method: delete
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  DeleteTermErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-delete-term-errors'
+      AlarmDescription: GLOSARIO - errores en DeleteTermFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'DeleteTermFunction'
+  RestoreTermLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-restore-term'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  RestoreTermFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-restore-term'
+      Description: GLOSARIO - RESTORE_TERM | POST /admin/terms/{termId}/restore
+      Handler: entrypoints.lambda_handlers.glossary.restore_term_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'RestoreTermLogGroup'
+      Events:
+        PostAdminTermsTermIdRestore:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /admin/terms/{termId}/restore
+            Method: post
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  RestoreTermErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-restore-term-errors'
+      AlarmDescription: GLOSARIO - errores en RestoreTermFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'RestoreTermFunction'
+  CreateTagLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-create-tag'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  CreateTagFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-create-tag'
+      Description: GLOSARIO - CREATE_TAG | POST /admin/tags
+      Handler: entrypoints.lambda_handlers.catalogs.create_tag_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'CreateTagLogGroup'
+      Events:
+        PostAdminTags:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /admin/tags
+            Method: post
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  CreateTagErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-create-tag-errors'
+      AlarmDescription: GLOSARIO - errores en CreateTagFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'CreateTagFunction'
+  DeleteTagLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-delete-tag'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  DeleteTagFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-delete-tag'
+      Description: GLOSARIO - DELETE_TAG | DELETE /admin/tags/{tagId}
+      Handler: entrypoints.lambda_handlers.catalogs.delete_tag_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'DeleteTagLogGroup'
+      Events:
+        DeleteAdminTagsTagId:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /admin/tags/{tagId}
+            Method: delete
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  DeleteTagErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-delete-tag-errors'
+      AlarmDescription: GLOSARIO - errores en DeleteTagFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'DeleteTagFunction'
+  CreateMasterLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-create-master'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  CreateMasterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-create-master'
+      Description: GLOSARIO - CREATE_MASTER | POST /admin/masters
+      Handler: entrypoints.lambda_handlers.catalogs.create_master_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'CreateMasterLogGroup'
+      Events:
+        PostAdminMasters:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /admin/masters
+            Method: post
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  CreateMasterErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-create-master-errors'
+      AlarmDescription: GLOSARIO - errores en CreateMasterFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'CreateMasterFunction'
+  DeleteMasterLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-delete-master'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  DeleteMasterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-delete-master'
+      Description: GLOSARIO - DELETE_MASTER | DELETE /admin/masters/{masterId}
+      Handler: entrypoints.lambda_handlers.catalogs.delete_master_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'DeleteMasterLogGroup'
+      Events:
+        DeleteAdminMastersMasterId:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /admin/masters/{masterId}
+            Method: delete
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  DeleteMasterErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-delete-master-errors'
+      AlarmDescription: GLOSARIO - errores en DeleteMasterFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'DeleteMasterFunction'
+  ListDictionaryMatchesLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-list-dictionary-matches'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  ListDictionaryMatchesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-list-dictionary-matches'
+      Description: GLOSARIO - LIST_DICTIONARY_MATCHES | GET /admin/dictionary-matches
+      Handler: entrypoints.lambda_handlers.dictionary.list_dictionary_matches_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'ListDictionaryMatchesLogGroup'
+      Events:
+        GetAdminDictionaryMatches:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /admin/dictionary-matches
+            Method: get
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  ListDictionaryMatchesErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-list-dictionary-matches-errors'
+      AlarmDescription: GLOSARIO - errores en ListDictionaryMatchesFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'ListDictionaryMatchesFunction'
+  ApplyDictionaryMatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-apply-dictionary-match'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  ApplyDictionaryMatchFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-apply-dictionary-match'
+      Description: GLOSARIO - APPLY_DICTIONARY_MATCH | POST /admin/dictionary-matches/{matchId}/apply
+      Handler: entrypoints.lambda_handlers.dictionary.apply_dictionary_match_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'ApplyDictionaryMatchLogGroup'
+      Events:
+        PostAdminDictionaryMatchesMatchIdApply:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /admin/dictionary-matches/{matchId}/apply
+            Method: post
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  ApplyDictionaryMatchErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-apply-dictionary-match-errors'
+      AlarmDescription: GLOSARIO - errores en ApplyDictionaryMatchFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'ApplyDictionaryMatchFunction'
+  DiscardDictionaryMatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-discard-dictionary-match'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  DiscardDictionaryMatchFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-discard-dictionary-match'
+      Description: GLOSARIO - DISCARD_DICTIONARY_MATCH | POST /admin/dictionary-matches/{matchId}/discard
+      Handler: entrypoints.lambda_handlers.dictionary.discard_dictionary_match_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'DiscardDictionaryMatchLogGroup'
+      Events:
+        PostAdminDictionaryMatchesMatchIdDiscard:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /admin/dictionary-matches/{matchId}/discard
+            Method: post
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  DiscardDictionaryMatchErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-discard-dictionary-match-errors'
+      AlarmDescription: GLOSARIO - errores en DiscardDictionaryMatchFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'DiscardDictionaryMatchFunction'
+  ReopenDictionaryMatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-reopen-dictionary-match'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  ReopenDictionaryMatchFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-reopen-dictionary-match'
+      Description: GLOSARIO - REOPEN_DICTIONARY_MATCH | POST /admin/dictionary-matches/{matchId}/reopen
+      Handler: entrypoints.lambda_handlers.dictionary.reopen_dictionary_match_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'ReopenDictionaryMatchLogGroup'
+      Events:
+        PostAdminDictionaryMatchesMatchIdReopen:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /admin/dictionary-matches/{matchId}/reopen
+            Method: post
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  ReopenDictionaryMatchErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-reopen-dictionary-match-errors'
+      AlarmDescription: GLOSARIO - errores en ReopenDictionaryMatchFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'ReopenDictionaryMatchFunction'
+  SearchSoftlandDictionaryLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-search-softland-dictionary'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  SearchSoftlandDictionaryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-search-softland-dictionary'
+      Description: GLOSARIO - SEARCH_SOFTLAND_DICTIONARY | GET /admin/softland-dictionary
+      Handler: entrypoints.lambda_handlers.dictionary.search_softland_dictionary_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'SearchSoftlandDictionaryLogGroup'
+      Events:
+        GetAdminSoftlandDictionary:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /admin/softland-dictionary
+            Method: get
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  SearchSoftlandDictionaryErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-search-softland-dictionary-errors'
+      AlarmDescription: GLOSARIO - errores en SearchSoftlandDictionaryFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'SearchSoftlandDictionaryFunction'
+  ListSyncRunsLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-list-sync-runs'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  ListSyncRunsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-list-sync-runs'
+      Description: GLOSARIO - LIST_SYNC_RUNS | GET /sync-runs
+      Handler: entrypoints.lambda_handlers.sync.list_sync_runs_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'ListSyncRunsLogGroup'
+      Events:
+        GetSyncRuns:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /sync-runs
+            Method: get
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  ListSyncRunsErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-list-sync-runs-errors'
+      AlarmDescription: GLOSARIO - errores en ListSyncRunsFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'ListSyncRunsFunction'
+  StartSyncRunLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-start-sync-run'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  StartSyncRunFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-start-sync-run'
+      Description: GLOSARIO - START_SYNC_RUN | POST /ingest/sync-runs
+      Handler: entrypoints.lambda_handlers.sync.start_sync_run_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'StartSyncRunLogGroup'
+      Events:
+        PostIngestSyncRuns:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /ingest/sync-runs
+            Method: post
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  StartSyncRunErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-start-sync-run-errors'
+      AlarmDescription: GLOSARIO - errores en StartSyncRunFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'StartSyncRunFunction'
+  AppendSyncRowsLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-append-sync-rows'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  AppendSyncRowsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-append-sync-rows'
+      Description: GLOSARIO - APPEND_SYNC_ROWS | POST /ingest/sync-runs/{runId}/rows
+      Handler: entrypoints.lambda_handlers.sync.append_sync_rows_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'AppendSyncRowsLogGroup'
+      Events:
+        PostIngestSyncRunsRunIdRows:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /ingest/sync-runs/{runId}/rows
+            Method: post
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  AppendSyncRowsErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-append-sync-rows-errors'
+      AlarmDescription: GLOSARIO - errores en AppendSyncRowsFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'AppendSyncRowsFunction'
+  CompleteSyncRunLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-complete-sync-run'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  CompleteSyncRunFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-complete-sync-run'
+      Description: GLOSARIO - COMPLETE_SYNC_RUN | POST /ingest/sync-runs/{runId}/complete
+      Handler: entrypoints.lambda_handlers.sync.complete_sync_run_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'CompleteSyncRunLogGroup'
+      Events:
+        PostIngestSyncRunsRunIdComplete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /ingest/sync-runs/{runId}/complete
+            Method: post
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  CompleteSyncRunErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-complete-sync-run-errors'
+      AlarmDescription: GLOSARIO - errores en CompleteSyncRunFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'CompleteSyncRunFunction'
+  FailSyncRunLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-fail-sync-run'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  FailSyncRunFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-fail-sync-run'
+      Description: GLOSARIO - FAIL_SYNC_RUN | POST /ingest/sync-runs/{runId}/fail
+      Handler: entrypoints.lambda_handlers.sync.fail_sync_run_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'FailSyncRunLogGroup'
+      Events:
+        PostIngestSyncRunsRunIdFail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref 'Api'
+            Path: /ingest/sync-runs/{runId}/fail
+            Method: post
+            Auth:
+              Authorizer: NONE
+      Role: !GetAtt 'DbRole.Arn'
+  FailSyncRunErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-fail-sync-run-errors'
+      AlarmDescription: GLOSARIO - errores en FailSyncRunFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'FailSyncRunFunction'
+  ExpireStaleSyncRunsJobLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-expire-stale-sync-runs-job'
+      RetentionInDays: !If [IsProduction, 30, 7]
+  ExpireStaleSyncRunsJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-expire-stale-sync-runs-job'
+      Description: GLOSARIO - EXPIRE_STALE_SYNC_RUNS_JOB | Programado cron(15 * * * ? *)
+      Handler: entrypoints.lambda_handlers.sync.expire_stale_sync_runs_handler
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref 'ExpireStaleSyncRunsJobLogGroup'
+      Events:
+        Schedule:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(15 * * * ? *)
+            Description: GLOSARIO - expire-sync-runs
+      Role: !GetAtt 'DbRole.Arn'
+  ExpireStaleSyncRunsJobErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-expire-stale-sync-runs-job-errors'
+      AlarmDescription: GLOSARIO - errores en ExpireStaleSyncRunsJobFunction
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Threshold: 1
+      Period: 300
+      Statistic: Sum
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+      - HasAlarmTopic
+      - - !Ref 'AlarmTopicArn'
+      - !Ref 'AWS::NoValue'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value: !Ref 'ExpireStaleSyncRunsJobFunction'
+  DbRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: 'GLOSARIO - rol compartido por 24 función(es): db'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole'
+      Policies:
+      - PolicyName: least-privilege
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Sid: WriteOwnLogs
+            Effect: Allow
+            Action:
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource:
+            - !GetAtt 'AppendSyncRowsLogGroup.Arn'
+            - !GetAtt 'ApplyDictionaryMatchLogGroup.Arn'
+            - !GetAtt 'CompleteSyncRunLogGroup.Arn'
+            - !GetAtt 'CreateMasterLogGroup.Arn'
+            - !GetAtt 'CreateTagLogGroup.Arn'
+            - !GetAtt 'CreateTermLogGroup.Arn'
+            - !GetAtt 'DeleteMasterLogGroup.Arn'
+            - !GetAtt 'DeleteTagLogGroup.Arn'
+            - !GetAtt 'DeleteTermLogGroup.Arn'
+            - !GetAtt 'DiscardDictionaryMatchLogGroup.Arn'
+            - !GetAtt 'ExpireStaleSyncRunsJobLogGroup.Arn'
+            - !GetAtt 'FailSyncRunLogGroup.Arn'
+            - !GetAtt 'GetAccessLogGroup.Arn'
+            - !GetAtt 'GetCatalogsLogGroup.Arn'
+            - !GetAtt 'GetHealthLogGroup.Arn'
+            - !GetAtt 'ListAdminTermsLogGroup.Arn'
+            - !GetAtt 'ListDictionaryMatchesLogGroup.Arn'
+            - !GetAtt 'ListSyncRunsLogGroup.Arn'
+            - !GetAtt 'ListTermsLogGroup.Arn'
+            - !GetAtt 'ReopenDictionaryMatchLogGroup.Arn'
+            - !GetAtt 'RestoreTermLogGroup.Arn'
+            - !GetAtt 'SearchSoftlandDictionaryLogGroup.Arn'
+            - !GetAtt 'StartSyncRunLogGroup.Arn'
+            - !GetAtt 'UpdateTermLogGroup.Arn'
+          - Sid: ReadDbSecret
+            Effect: Allow
+            Action:
+            - secretsmanager:GetSecretValue
+            Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${DbSecretName}-??????'
+  ApiWebAcl:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub '${AWS::StackName}-api-waf'
+      Scope: REGIONAL
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub '${AWS::StackName}-api-waf'
+      Rules:
+      - Name: RateLimitPerIp
+        Priority: 0
+        Statement:
+          RateBasedStatement:
+            Limit: !Ref 'WafRateLimit'
+            AggregateKeyType: IP
+        VisibilityConfig:
+          SampledRequestsEnabled: true
+          CloudWatchMetricsEnabled: true
+          MetricName: RateLimitPerIp
+        Action:
+          Block: {}
+      - Name: AWSManagedCommon
+        Priority: 1
+        Statement:
+          ManagedRuleGroupStatement:
+            VendorName: AWS
+            Name: AWSManagedRulesCommonRuleSet
+        VisibilityConfig:
+          SampledRequestsEnabled: true
+          CloudWatchMetricsEnabled: true
+          MetricName: AWSManagedCommon
+        OverrideAction:
+          None: {}
+      - Name: AWSManagedKnownBadInputs
+        Priority: 2
+        Statement:
+          ManagedRuleGroupStatement:
+            VendorName: AWS
+            Name: AWSManagedRulesKnownBadInputsRuleSet
+        VisibilityConfig:
+          SampledRequestsEnabled: true
+          CloudWatchMetricsEnabled: true
+          MetricName: AWSManagedKnownBadInputs
+        OverrideAction:
+          None: {}
+  ApiWebAclAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    DependsOn: ApiStage
+    Properties:
+      ResourceArn: !Sub 'arn:aws:apigateway:${AWS::Region}::/restapis/${Api}/stages/${Environment}'
+      WebACLArn: !GetAtt 'ApiWebAcl.Arn'
+Outputs:
+  UserPoolId:
+    Condition: CreateUserPool
+    Value: !Ref 'UserPool'
+    Description: COGNITO_USER_POOL_ID del frontend
+  UserPoolClientId:
+    Condition: CreateUserPool
+    Value: !Ref 'UserPoolClient'
+    Description: COGNITO_CLIENT_ID del frontend
+  ApiUrl:
+    Description: URL base del API (VITE_/NEXT_PUBLIC_/REACT_APP_API_BASE_URL)
+    Value: !Sub 'https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'

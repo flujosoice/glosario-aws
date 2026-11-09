@@ -1,0 +1,37 @@
+{
+  "env": "dev",
+  "started_at": "2026-10-30T19:35:32+00:00",
+  "steps": [
+    {
+      "step": "verificación del proyecto",
+      "status": "OK",
+      "detail": "PROJECT COMPLETE"
+    },
+    {
+      "step": "plataforma",
+      "status": "OK",
+      "detail": "dev-glosario-platform · Aurora dev-glosario-aurora · frontend https://dev.d11mn7uw1xww2a.amplifyapp.com"
+    },
+    {
+      "step": "base de datos",
+      "status": "OK",
+      "detail": "may_dev_glosario_db: provisioning, schema, 0 cambios, datos, validación TOTAL_FALTA=0"
+    },
+    {
+      "step": "backend",
+      "status": "OK",
+      "detail": "dev-glosario-api · código 19b8e72e20a735bf · API https://t7xjnt2v5e.execute-api.us-west-2.amazonaws.com/dev"
+    },
+    {
+      "step": "frontend",
+      "status": "OK",
+      "detail": "https://dev.d11mn7uw1xww2a.amplifyapp.com"
+    },
+    {
+      "step": "horario de servicio",
+      "status": "OK",
+      "detail": "{\"action\": \"start\", \"cluster_before\": \"available\", \"cluster\": \"available\", \"functions\": 24}"
+    }
+  ],
+  "finished_at": "2026-10-30T19:52:34+00:00"
+}

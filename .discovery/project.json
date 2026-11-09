@@ -1,0 +1,17 @@
+{
+  "name": "glosario",
+  "app_slug": "glosario",
+  "root": "frontend",
+  "framework": "vite",
+  "framework_version": "8",
+  "language": "ts",
+  "src_dir": "src",
+  "router": {
+    "kind": "react-router"
+  },
+  "monolith": false,
+  "frontend_deploy_target": "amplify-static",
+  "prettier_config": ".prettierrc",
+  "env_files": {},
+  "env_references": []
+}

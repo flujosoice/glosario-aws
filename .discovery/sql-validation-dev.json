@@ -1,0 +1,82 @@
+{
+  "database": "may_dev_glosario_db",
+  "steps": [
+    {
+      "step": "provisioning (ejecución 1)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "schema (ejecución 1)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "datos iniciales (ejecución 1)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "validation (ejecución 1) TOTAL_FALTA=0",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "provisioning (ejecución 2)",
+      "ok": true,
+      "detail": "psql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_provisioning.sql:91: NOTICE:  el rol Â«rw_glosarioÂ» ya recibiÃ³ membresÃ­a en el rol Â«ro_glosarioÂ» por parte del rol Â«postgresÂ»\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_provisioning.sql:92: NOTICE:  el rol Â«ddl_glosarioÂ» ya recibiÃ³ membresÃ­a en el rol Â«rw_glosarioÂ» por parte del rol Â«postgresÂ»\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_provisioning.sql:93: NOTICE:  el rol Â«admin_glosarioÂ» ya recibiÃ³ membresÃ­a en el rol Â«ddl_glosarioÂ» por parte del rol Â«postgresÂ»\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_provisioning.sql:95: NOTICE:  el rol Â«postgresÂ» ya recibiÃ³ membresÃ­a en el rol Â«admin_glosarioÂ» por parte del rol Â«postgresÂ»\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_provisioning.sql:101: NOTICE:  el rol Â«usr_glosario_reportÂ» ya recibiÃ³ membresÃ­a en el rol Â«ro_glosarioÂ» por parte del rol Â«postgresÂ»\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_provisioning.sql:105: NOTICE:  el rol Â«usr_glosario_appÂ» ya recibiÃ³ membresÃ­a en el rol Â«rw_glosarioÂ» por parte del rol Â«postgresÂ»\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_provisioning.sql:109: NOTICE:  el rol Â«usr_glosario_deployÂ» ya recibiÃ³ membresÃ­a en el rol Â«ddl_glosarioÂ» por parte del rol Â«postgresÂ»\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_provisioning.sql:113: NOTICE:  el rol Â«usr_glosario_dbaÂ» ya recibiÃ³ membresÃ­a en el rol Â«admin_glosarioÂ» por parte del rol Â«postgresÂ»\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_provisioning.sql:127: NOTICE:  el esquema Â«may_dev_glosario_sch_coreÂ» ya existe, omitiendo\n"
+    },
+    {
+      "step": "schema (ejecución 2)",
+      "ok": true,
+      "detail": "tiquetasÂ» ya existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_schema.sql:246: NOTICE:  la relaciÃ³n Â«tbl_termino_maestrosÂ» ya existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_schema.sql:258: NOTICE:  la relaciÃ³n Â«tbl_sugerencia_opcionesÂ» ya existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_schema.sql:623: NOTICE:  la relaciÃ³n Â«idx_atributos_maestro_sincronizacion_id_nombre_tecnicoÂ» ya existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_schema.sql:624: NOTICE:  la relaciÃ³n Â«idx_auditoria_terminos_termino_id_creado_enÂ» ya existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_schema.sql:625: NOTICE:  la relaciÃ³n Â«idx_diccionario_softland_sincronizacion_id_columnaÂ» ya existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_schema.sql:626: NOTICE:  la relaciÃ³n Â«uidx_etiquetas_nombre_keyÂ» ya existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_schema.sql:627: NOTICE:  la relaciÃ³n Â«uidx_maestros_nombre_keyÂ» ya existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_schema.sql:628: NOTICE:  la relaciÃ³n Â«idx_sincronizaciones_origen_iniciada_enÂ» ya existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_schema.sql:629: NOTICE:  la relaciÃ³n Â«uidx_sincronizaciones_origen_partialÂ» ya existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_schema.sql:630: NOTICE:  la relaciÃ³n Â«idx_sugerencias_diccionario_estado_ordenÂ» ya existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_schema.sql:631: NOTICE:  la relaciÃ³n Â«idx_sugerencias_diccionario_termino_idÂ» ya existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_schema.sql:632: NOTICE:  la relaciÃ³n Â«idx_termino_etiquetas_etiqueta_idÂ» ya existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_schema.sql:633: NOTICE:  la relaciÃ³n Â«idx_termino_maestros_maestro_idÂ» ya existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_schema.sql:634: NOTICE:  la relaciÃ³n Â«idx_terminos_terminoÂ» ya existe, omitiendo\n"
+    },
+    {
+      "step": "datos iniciales (ejecución 2)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "validation (ejecución 2) TOTAL_FALTA=0",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "search_path del usuario de la app",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "rollback de objetos",
+      "ok": true,
+      "detail": "ents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_rollback.sql:51: NOTICE:  el esquema Â«may_dev_glosario_sch_coreÂ» no existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_rollback.sql:52: NOTICE:  el esquema Â«may_dev_glosario_sch_coreÂ» no existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_rollback.sql:54: NOTICE:  el esquema Â«may_dev_glosario_sch_coreÂ» no existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_rollback.sql:55: NOTICE:  el esquema Â«may_dev_glosario_sch_coreÂ» no existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_rollback.sql:56: NOTICE:  el esquema Â«may_dev_glosario_sch_coreÂ» no existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_rollback.sql:57: NOTICE:  el esquema Â«may_dev_glosario_sch_coreÂ» no existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_rollback.sql:58: NOTICE:  el esquema Â«may_dev_glosario_sch_coreÂ» no existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_rollback.sql:60: NOTICE:  el esquema Â«may_dev_glosario_sch_coreÂ» no existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_rollback.sql:61: NOTICE:  el esquema Â«may_dev_glosario_sch_coreÂ» no existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_rollback.sql:62: NOTICE:  el esquema Â«may_dev_glosario_sch_coreÂ» no existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_rollback.sql:63: NOTICE:  el esquema Â«may_dev_glosario_sch_coreÂ» no existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_rollback.sql:64: NOTICE:  el esquema Â«may_dev_glosario_sch_coreÂ» no existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_rollback.sql:65: NOTICE:  el esquema Â«may_dev_glosario_sch_coreÂ» no existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_rollback.sql:66: NOTICE:  el esquema Â«may_dev_glosario_sch_coreÂ» no existe, omitiendo\npsql:C:/Users/cagonzalez/Documents/Respaldar/Procesos/GlosarioActualizado/glosario-aws/database/aurora_postgresql_rollback.sql:69: NOTICE:  el esquema Â«may_dev_glosario_sch_coreÂ» no existe, omitiendo\n"
+    },
+    {
+      "step": "esquemas eliminados",
+      "ok": true,
+      "detail": "quedan 0"
+    },
+    {
+      "step": "rollback MANUAL (base, usuarios, roles)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "roles y usuarios eliminados",
+      "ok": true,
+      "detail": "quedan 0"
+    }
+  ],
+  "status": "PASSED",
+  "sandbox_mode": "local",
+  "validation_round_1": {
+    "checks": 145,
+    "total_falta": 0,
+    "falta": []
+  },
+  "validation_round_2": {
+    "checks": 145,
+    "total_falta": 0,
+    "falta": []
+  }
+}

@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.aws-sam/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+frontend/dist/
+.env.aws
+
+# Paquetes de despliegue generados por deploy.py
+deploy/build/
+# Entornos y coberturas locales
+.venv/
+.coverage
+htmlcov/

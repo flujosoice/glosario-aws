@@ -1,0 +1,79 @@
+version = 0.1
+
+[dev.build.parameters]
+cached = true
+parallel = true
+
+[dev.deploy.parameters]
+stack_name = "dev-glosario-api"
+region = "us-west-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
+s3_prefix = "dev-glosario-api"
+parameter_overrides = [
+  "Environment=dev",
+  "VpcSubnetIds=/dev/glosario/network/subnets",
+  "LambdaSecurityGroupId=/dev/glosario/network/lambda-sg",
+  "DbProxyEndpoint=/dev/glosario/db/proxy-endpoint",
+  "DbSecretName=/dev/glosario/db/app",
+  "DbName=may_dev_glosario_db",
+  "AllowedOrigins=/dev/glosario/frontend/origin",
+]
+tags = [
+  "Project=GLOSARIO",
+  "Environment=DEV",
+  "Name=dev-glosario-api",
+]
+
+[qa.build.parameters]
+cached = true
+parallel = true
+
+[qa.deploy.parameters]
+stack_name = "qa-glosario-api"
+region = "us-west-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
+s3_prefix = "qa-glosario-api"
+parameter_overrides = [
+  "Environment=qa",
+  "VpcSubnetIds=/qa/glosario/network/subnets",
+  "LambdaSecurityGroupId=/qa/glosario/network/lambda-sg",
+  "DbProxyEndpoint=/qa/glosario/db/proxy-endpoint",
+  "DbSecretName=/qa/glosario/db/app",
+  "DbName=may_qa_glosario_db",
+  "AllowedOrigins=/qa/glosario/frontend/origin",
+]
+tags = [
+  "Project=GLOSARIO",
+  "Environment=QA",
+  "Name=qa-glosario-api",
+]
+
+[prod.build.parameters]
+cached = true
+parallel = true
+
+[prod.deploy.parameters]
+stack_name = "prod-glosario-api"
+region = "us-west-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
+s3_prefix = "prod-glosario-api"
+parameter_overrides = [
+  "Environment=prod",
+  "VpcSubnetIds=/prod/glosario/network/subnets",
+  "LambdaSecurityGroupId=/prod/glosario/network/lambda-sg",
+  "DbProxyEndpoint=/prod/glosario/db/proxy-endpoint",
+  "DbSecretName=/prod/glosario/db/app",
+  "DbName=may_prd_glosario_db",
+  "AllowedOrigins=/prod/glosario/frontend/origin",
+]
+tags = [
+  "Project=GLOSARIO",
+  "Environment=PROD",
+  "Name=prod-glosario-api",
+]

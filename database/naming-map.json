@@ -1,0 +1,399 @@
+{
+  "environment": "dev",
+  "database": "may_dev_glosario_db",
+  "schemas": {
+    "public": "may_dev_glosario_sch_core"
+  },
+  "search_path": [
+    "may_dev_glosario_sch_core"
+  ],
+  "roles": {
+    "ro": "ro_glosario",
+    "rw": "rw_glosario",
+    "ddl": "ddl_glosario",
+    "admin": "admin_glosario"
+  },
+  "users": {
+    "ro": "usr_glosario_report",
+    "rw": "usr_glosario_app",
+    "ddl": "usr_glosario_deploy",
+    "admin": "usr_glosario_dba"
+  },
+  "relations": [
+    {
+      "source": "public.atributos_maestro",
+      "target": "may_dev_glosario_sch_core.tbl_atributos_maestro",
+      "target_name": "tbl_atributos_maestro",
+      "kind": "table"
+    },
+    {
+      "source": "public.auditoria_terminos",
+      "target": "may_dev_glosario_sch_core.tbl_auditoria_terminos",
+      "target_name": "tbl_auditoria_terminos",
+      "kind": "table"
+    },
+    {
+      "source": "public.definicion_fragmentos",
+      "target": "may_dev_glosario_sch_core.tbl_definicion_fragmentos",
+      "target_name": "tbl_definicion_fragmentos",
+      "kind": "table"
+    },
+    {
+      "source": "public.diccionario_softland",
+      "target": "may_dev_glosario_sch_core.tbl_diccionario_softland",
+      "target_name": "tbl_diccionario_softland",
+      "kind": "table"
+    },
+    {
+      "source": "public.etiquetas",
+      "target": "may_dev_glosario_sch_core.tbl_etiquetas",
+      "target_name": "tbl_etiquetas",
+      "kind": "table"
+    },
+    {
+      "source": "public.llaves_acceso",
+      "target": "may_dev_glosario_sch_core.tbl_llaves_acceso",
+      "target_name": "tbl_llaves_acceso",
+      "kind": "table"
+    },
+    {
+      "source": "public.maestros",
+      "target": "may_dev_glosario_sch_core.tbl_maestros",
+      "target_name": "tbl_maestros",
+      "kind": "table"
+    },
+    {
+      "source": "public.sincronizaciones",
+      "target": "may_dev_glosario_sch_core.tbl_sincronizaciones",
+      "target_name": "tbl_sincronizaciones",
+      "kind": "table"
+    },
+    {
+      "source": "public.sugerencia_opciones",
+      "target": "may_dev_glosario_sch_core.tbl_sugerencia_opciones",
+      "target_name": "tbl_sugerencia_opciones",
+      "kind": "table"
+    },
+    {
+      "source": "public.sugerencias_diccionario",
+      "target": "may_dev_glosario_sch_core.tbl_sugerencias_diccionario",
+      "target_name": "tbl_sugerencias_diccionario",
+      "kind": "table"
+    },
+    {
+      "source": "public.termino_campos_bd",
+      "target": "may_dev_glosario_sch_core.tbl_termino_campos_bd",
+      "target_name": "tbl_termino_campos_bd",
+      "kind": "table"
+    },
+    {
+      "source": "public.termino_etiquetas",
+      "target": "may_dev_glosario_sch_core.tbl_termino_etiquetas",
+      "target_name": "tbl_termino_etiquetas",
+      "kind": "table"
+    },
+    {
+      "source": "public.termino_maestros",
+      "target": "may_dev_glosario_sch_core.tbl_termino_maestros",
+      "target_name": "tbl_termino_maestros",
+      "kind": "table"
+    },
+    {
+      "source": "public.terminos",
+      "target": "may_dev_glosario_sch_core.tbl_terminos",
+      "target_name": "tbl_terminos",
+      "kind": "table"
+    },
+    {
+      "source": "auth.users",
+      "target": "may_dev_glosario_sch_core.tbl_app_users",
+      "target_name": "tbl_app_users",
+      "kind": "table"
+    }
+  ],
+  "functions": [],
+  "auth_functions": {
+    "auth.uid()": "fn_auth_uid()",
+    "auth.role()": "fn_auth_role()",
+    "auth.email()": "fn_auth_email()",
+    "auth.jwt()": "fn_auth_jwt()"
+  },
+  "constraints": [
+    {
+      "table": "public.atributos_maestro",
+      "source": "atributos_maestro_fila_check",
+      "target": "ck_atributos_maestro_fila"
+    },
+    {
+      "table": "public.atributos_maestro",
+      "source": "atributos_maestro_pkey",
+      "target": "pk_atributos_maestro"
+    },
+    {
+      "table": "public.atributos_maestro",
+      "source": "atributos_maestro_sincronizacion_id_fkey",
+      "target": "fk_atributos_maestro_sincronizaciones"
+    },
+    {
+      "table": "public.auditoria_terminos",
+      "source": "auditoria_terminos_accion_check",
+      "target": "ck_auditoria_terminos_accion"
+    },
+    {
+      "table": "public.auditoria_terminos",
+      "source": "auditoria_terminos_pkey",
+      "target": "pk_auditoria_terminos"
+    },
+    {
+      "table": "public.auditoria_terminos",
+      "source": "auditoria_terminos_termino_id_fkey",
+      "target": "fk_auditoria_terminos_terminos"
+    },
+    {
+      "table": "public.definicion_fragmentos",
+      "source": "definicion_fragmentos_orden_check",
+      "target": "ck_definicion_fragmentos_orden"
+    },
+    {
+      "table": "public.definicion_fragmentos",
+      "source": "definicion_fragmentos_pkey",
+      "target": "pk_definicion_fragmentos"
+    },
+    {
+      "table": "public.definicion_fragmentos",
+      "source": "definicion_fragmentos_termino_id_fkey",
+      "target": "fk_definicion_fragmentos_terminos"
+    },
+    {
+      "table": "public.diccionario_softland",
+      "source": "diccionario_softland_columna_check",
+      "target": "ck_diccionario_softland_columna"
+    },
+    {
+      "table": "public.diccionario_softland",
+      "source": "diccionario_softland_pkey",
+      "target": "pk_diccionario_softland"
+    },
+    {
+      "table": "public.diccionario_softland",
+      "source": "diccionario_softland_sincronizacion_id_fkey",
+      "target": "fk_diccionario_softland_sincronizaciones"
+    },
+    {
+      "table": "public.diccionario_softland",
+      "source": "diccionario_softland_tabla_check",
+      "target": "ck_diccionario_softland_tabla"
+    },
+    {
+      "table": "public.etiquetas",
+      "source": "etiquetas_nombre_check",
+      "target": "ck_etiquetas_nombre"
+    },
+    {
+      "table": "public.etiquetas",
+      "source": "etiquetas_pkey",
+      "target": "pk_etiquetas"
+    },
+    {
+      "table": "public.llaves_acceso",
+      "source": "llaves_acceso_etiqueta_check",
+      "target": "ck_llaves_acceso_etiqueta"
+    },
+    {
+      "table": "public.llaves_acceso",
+      "source": "llaves_acceso_hash_key",
+      "target": "uq_llaves_acceso_hash_llave"
+    },
+    {
+      "table": "public.llaves_acceso",
+      "source": "llaves_acceso_hash_llave_check",
+      "target": "ck_llaves_acceso_hash_llave"
+    },
+    {
+      "table": "public.llaves_acceso",
+      "source": "llaves_acceso_pkey",
+      "target": "pk_llaves_acceso"
+    },
+    {
+      "table": "public.maestros",
+      "source": "maestros_nombre_check",
+      "target": "ck_maestros_nombre"
+    },
+    {
+      "table": "public.maestros",
+      "source": "maestros_pkey",
+      "target": "pk_maestros"
+    },
+    {
+      "table": "public.sincronizaciones",
+      "source": "sincronizaciones_filas_esperadas_check",
+      "target": "ck_sincronizaciones_filas_esperadas"
+    },
+    {
+      "table": "public.sincronizaciones",
+      "source": "sincronizaciones_filas_recibidas_check",
+      "target": "ck_sincronizaciones_filas_recibidas"
+    },
+    {
+      "table": "public.sincronizaciones",
+      "source": "sincronizaciones_pkey",
+      "target": "pk_sincronizaciones"
+    },
+    {
+      "table": "public.sugerencia_opciones",
+      "source": "sugerencia_opciones_n_tablas_check",
+      "target": "ck_sugerencia_opciones_n_tablas"
+    },
+    {
+      "table": "public.sugerencia_opciones",
+      "source": "sugerencia_opciones_orden_check",
+      "target": "ck_sugerencia_opciones_orden"
+    },
+    {
+      "table": "public.sugerencia_opciones",
+      "source": "sugerencia_opciones_pkey",
+      "target": "pk_sugerencia_opciones"
+    },
+    {
+      "table": "public.sugerencia_opciones",
+      "source": "sugerencia_opciones_sugerencia_id_fkey",
+      "target": "fk_sugerencia_opciones_sugerencias_diccionario"
+    },
+    {
+      "table": "public.sugerencias_diccionario",
+      "source": "sugerencias_diccionario_id_check",
+      "target": "ck_sugerencias_diccionario_id"
+    },
+    {
+      "table": "public.sugerencias_diccionario",
+      "source": "sugerencias_diccionario_pkey",
+      "target": "pk_sugerencias_diccionario"
+    },
+    {
+      "table": "public.sugerencias_diccionario",
+      "source": "sugerencias_diccionario_termino_id_fkey",
+      "target": "fk_sugerencias_diccionario_terminos"
+    },
+    {
+      "table": "public.termino_campos_bd",
+      "source": "termino_campos_bd_aplica_a_check",
+      "target": "ck_termino_campos_bd_aplica_a"
+    },
+    {
+      "table": "public.termino_campos_bd",
+      "source": "termino_campos_bd_campo_check",
+      "target": "ck_termino_campos_bd_campo"
+    },
+    {
+      "table": "public.termino_campos_bd",
+      "source": "termino_campos_bd_orden_check",
+      "target": "ck_termino_campos_bd_orden"
+    },
+    {
+      "table": "public.termino_campos_bd",
+      "source": "termino_campos_bd_pkey",
+      "target": "pk_termino_campos_bd"
+    },
+    {
+      "table": "public.termino_campos_bd",
+      "source": "termino_campos_bd_termino_id_fkey",
+      "target": "fk_termino_campos_bd_terminos"
+    },
+    {
+      "table": "public.termino_etiquetas",
+      "source": "termino_etiquetas_etiqueta_id_fkey",
+      "target": "fk_termino_etiquetas_etiquetas"
+    },
+    {
+      "table": "public.termino_etiquetas",
+      "source": "termino_etiquetas_pkey",
+      "target": "pk_termino_etiquetas"
+    },
+    {
+      "table": "public.termino_etiquetas",
+      "source": "termino_etiquetas_termino_id_fkey",
+      "target": "fk_termino_etiquetas_terminos"
+    },
+    {
+      "table": "public.termino_maestros",
+      "source": "termino_maestros_maestro_id_fkey",
+      "target": "fk_termino_maestros_maestros"
+    },
+    {
+      "table": "public.termino_maestros",
+      "source": "termino_maestros_pkey",
+      "target": "pk_termino_maestros"
+    },
+    {
+      "table": "public.termino_maestros",
+      "source": "termino_maestros_termino_id_fkey",
+      "target": "fk_termino_maestros_terminos"
+    },
+    {
+      "table": "public.terminos",
+      "source": "terminos_campo_softland_check",
+      "target": "ck_terminos_campo_softland"
+    },
+    {
+      "table": "public.terminos",
+      "source": "terminos_pkey",
+      "target": "pk_terminos"
+    },
+    {
+      "table": "public.terminos",
+      "source": "terminos_termino_check",
+      "target": "ck_terminos_termino"
+    }
+  ],
+  "indexes": [
+    {
+      "source": "public.atributos_maestro_sincronizacion_idx",
+      "target": "idx_atributos_maestro_sincronizacion_id_nombre_tecnico"
+    },
+    {
+      "source": "public.auditoria_terminos_termino_idx",
+      "target": "idx_auditoria_terminos_termino_id_creado_en"
+    },
+    {
+      "source": "public.diccionario_softland_columna_idx",
+      "target": "idx_diccionario_softland_sincronizacion_id_columna"
+    },
+    {
+      "source": "public.etiquetas_nombre_key",
+      "target": "uidx_etiquetas_nombre_key"
+    },
+    {
+      "source": "public.maestros_nombre_key",
+      "target": "uidx_maestros_nombre_key"
+    },
+    {
+      "source": "public.sincronizaciones_origen_idx",
+      "target": "idx_sincronizaciones_origen_iniciada_en"
+    },
+    {
+      "source": "public.sincronizaciones_vigente_key",
+      "target": "uidx_sincronizaciones_origen_partial"
+    },
+    {
+      "source": "public.sugerencias_diccionario_estado_idx",
+      "target": "idx_sugerencias_diccionario_estado_orden"
+    },
+    {
+      "source": "public.sugerencias_diccionario_termino_idx",
+      "target": "idx_sugerencias_diccionario_termino_id"
+    },
+    {
+      "source": "public.termino_etiquetas_etiqueta_idx",
+      "target": "idx_termino_etiquetas_etiqueta_id"
+    },
+    {
+      "source": "public.termino_maestros_maestro_idx",
+      "target": "idx_termino_maestros_maestro_id"
+    },
+    {
+      "source": "public.terminos_termino_idx",
+      "target": "idx_terminos_termino"
+    }
+  ],
+  "triggers": []
+}

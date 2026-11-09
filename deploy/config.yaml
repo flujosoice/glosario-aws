@@ -1,0 +1,32 @@
+﻿# ConfiguraciÃ³n de despliegue (aws-project-deployer). Horario en la zona indicada; days: * o MON-FRI.
+# Para usar una VPC existente: create_network: false + existing_vpc_id + existing_private_subnet_ids
+# (subredes privadas con salida a Internet por NAT).
+service_hours:
+  enabled: true
+  timezone: America/Costa_Rica
+  warmup: 04:45
+  start: 05:00
+  stop: '17:00'
+  days: '*'
+environments:
+  dev:
+    create_network: true
+    vpc_cidr: 10.40.0.0/16
+    use_rds_proxy: false
+    db_min_capacity: 0.5
+    db_max_capacity: 2
+    db_engine_version: '16.15'
+  qa:
+    create_network: true
+    vpc_cidr: 10.41.0.0/16
+    use_rds_proxy: false
+    db_min_capacity: 0.5
+    db_max_capacity: 2
+    db_engine_version: '16.15'
+  prod:
+    create_network: true
+    vpc_cidr: 10.42.0.0/16
+    use_rds_proxy: true
+    db_min_capacity: 0.5
+    db_max_capacity: 8
+    db_engine_version: '16.15'

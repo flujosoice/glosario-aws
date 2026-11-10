@@ -23,7 +23,7 @@ Hoy existe como app en claude.ai, con datos en Excel. Este proyecto la migra a A
 
 | Qué | Dónde |
 |---|---|
-| Carpeta raíz | `C:\Users\cagonzalez\Documents\Respaldar\Procesos\GlosarioActualizado\` |
+| Carpeta raíz | `C:\Users\cagonzalez\Documents\Respaldar\Actual\Procesos\GlosarioActualizado\` |
 | Proyecto AWS (el que se despliega) | `GlosarioActualizado\glosario-aws\` |
 | App original de claude.ai y sus datos | `GlosarioActualizado\glosario-terminos-mayoreo\` (tiene `LEEME.md`, `CLAUDE.md`, `app/`, `datos/`, `db/`, `src/`) |
 | Cronograma | `GlosarioActualizado\Cronograma_Glosario_AWS.pdf` y `.pptx` |

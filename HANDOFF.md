@@ -2,6 +2,8 @@
 
 Documento de entrega para el próximo desarrollador. Escrito el **09/11/2026** a partir de lo que hay en disco y en AWS ese día.
 
+> El registro completo de decisiones de diseño, con su contexto, sus alternativas y su impacto, está en [DECISIONES.md](DECISIONES.md).
+
 En cada dato se indica cómo se obtuvo:
 - **[verificado]**: lo revisé el 09/11 en disco o en AWS.
 - **[del 30/10]**: viene del reporte de despliegue de ese día; hoy no se pudo volver a comprobar porque las credenciales SSO están vencidas.
@@ -270,6 +272,8 @@ Preguntas abiertas:
 7. Entregar a Sistemas los dos enlaces para el Portal y actualizar el Claude Doc de accesos.
 
 ## 11. Decisiones tomadas y por qué
+
+Esta tabla es un resumen. El detalle de cada decisión (fecha, alternativas, quién la tomó, impacto y estado) y las decisiones pendientes están en [DECISIONES.md](DECISIONES.md).
 
 | Decisión | Motivo |
 |---|---|
